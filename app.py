@@ -141,7 +141,8 @@ DISEASE_INFO = {
 def load_wheat_model():
     if not os.path.exists(MODEL_PATH):
         try:
-            gdown.download(id=FILE_ID, output=MODEL_PATH, quiet=False, fuzzy=True)
+            url = f'https://drive.google.com/uc?id={FILE_ID}'
+            gdown.download(url, MODEL_PATH, quiet=False)
         except Exception as e:
             st.error(f"שגיאה בהורדת המודל מ-Google Drive: {e}")
             return None, None
