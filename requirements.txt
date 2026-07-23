@@ -5,4 +5,4 @@ pillow
 pandas
 openpyxl
 pymongo
-gdown
+gdown>=4.7.1
