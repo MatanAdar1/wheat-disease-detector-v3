@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from pymongo import MongoClient
+import gdown
 
 # ─────────────────────────────────────────
 # Page Configuration
@@ -103,9 +104,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
-# Model Loading (טעינה ישירה מתיקיית ה-GitHub)
+# Model Loading (הורדה אוטומטית מ-Google Drive)
 # ─────────────────────────────────────────
 MODEL_PATH = 'best_resnet18_wheat.pt'
+FILE_ID = '161ysydHCyvLOoVWkwWqJT5RpcMn_0rVu'
 CONFIDENCE_THRESHOLD = 0.25
 
 DISEASE_INFO = {
@@ -126,7 +128,7 @@ DISEASE_INFO = {
     },
     "LeafBlight": {
         "heb": "קמלת עלים (Leaf Blight)",
-        "desc": "מחלה פטרייתית המתבטאת בכתמים חומים-אפרפרים על العלים.",
+        "desc": "מחלה פטרייתית המתבטאת בכתמים חומים-אפרפרים על העלים.",
         "tip": "מומלץ לרסס בקוטלי פטריות עם זיהוי הסימנים הראשונים."
     },
     "WheatBlast": {
@@ -139,8 +141,8 @@ DISEASE_INFO = {
 @st.cache_resource
 def load_wheat_model():
     if not os.path.exists(MODEL_PATH):
-        st.error(f"❌ הקובץ '{MODEL_PATH}' לא נמצא בתיקיית הפרויקט ב-GitHub.")
-        return None, None
+        with st.spinner("טוען מודל בינה מלאכותית מ-Google Drive..."):
+            gdown.download(f"https://drive.google.com/uc?id={FILE_ID}", MODEL_PATH, quiet=False)
             
     try:
         checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
