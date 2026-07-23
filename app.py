@@ -106,7 +106,7 @@ st.markdown("""
 # Model Constants & Download
 # ─────────────────────────────────────────
 MODEL_PATH = 'best_resnet18_wheat.pt'
-FILE_ID = '14X2jR9P6LSoNl4jS_1fX5j2G-Npx8Gk0'
+FILE_ID = '161ysydHCyvLOoVWkwWqJT5RpcMn_0rVu'
 CONFIDENCE_THRESHOLD = 0.25
 
 DISEASE_INFO = {
