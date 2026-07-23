@@ -140,13 +140,8 @@ DISEASE_INFO = {
 @st.cache_resource
 def load_wheat_model():
     if not os.path.exists(MODEL_PATH):
-        try:
-            url = f'https://drive.google.com/uc?id={FILE_ID}'
-            gdown.download(url, MODEL_PATH, quiet=False)
-        except Exception as e:
-            st.error(f"שגיאה בהורדת המודל מ-Google Drive: {e}")
-            return None, None
-            
+        with st.spinner("טוען מודל בינה מלאכותית..."):
+            gdown.download(f"https://drive.google.com/uc?id={FILE_ID}", MODEL_PATH, quiet=False)
     try:
         checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
         lbl = checkpoint.get("classes", list(DISEASE_INFO.keys()))
