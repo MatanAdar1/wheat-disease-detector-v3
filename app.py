@@ -9,11 +9,10 @@ import streamlit as st
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-import gdown
 from pymongo import MongoClient
 
 # ─────────────────────────────────────────
-# Page Configuration (חייב להיות הראשון מפקודות Streamlit!)
+# Page Configuration
 # ─────────────────────────────────────────
 st.set_page_config(
     page_title="מערכת ניטור וחיישני חיטה v3 🌾",
@@ -22,7 +21,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# MongoDB Connection (עם Timeout של 5 שניות למניעת תקיעה)
+# MongoDB Connection (מופרד עבור V3)
 # ─────────────────────────────────────────
 @st.cache_resource
 def get_db():
@@ -33,7 +32,8 @@ def get_db():
         uri = st.secrets["MONGODB_URI"]
         client = MongoClient(uri, serverSelectionTimeoutMS=5000)
         client.admin.command("ping")
-        return client["wheat_disease_db"]
+        # הפרדת בסיס הנתונים ל-V3 בלבד
+        return client["wheat_disease_db_v3"]
     except Exception as e:
         st.error(f"❌ שגיאה בחיבור ל-MongoDB: {e}")
         st.info("💡 ודא שב-MongoDB Atlas מוגדר Network Access -> Allow Access From Anywhere (0.0.0.0/0)")
@@ -53,7 +53,7 @@ if "current_plant_idx" not in st.session_state:
     st.session_state.current_plant_idx = 0
 
 # ─────────────────────────────────────────
-# CSS Styling (יישור RTL ועיצוב כרטיסיות)
+# CSS Styling (יישור RTL ועיצוב)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -103,10 +103,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
-# Model Constants & Download
+# Model Loading (טעינה ישירה מתיקיית ה-GitHub)
 # ─────────────────────────────────────────
 MODEL_PATH = 'best_resnet18_wheat.pt'
-FILE_ID = '161ysydHCyvLOoVWkwWqJT5RpcMn_0rVu'
 CONFIDENCE_THRESHOLD = 0.25
 
 DISEASE_INFO = {
@@ -127,7 +126,7 @@ DISEASE_INFO = {
     },
     "LeafBlight": {
         "heb": "קמלת עלים (Leaf Blight)",
-        "desc": "מחלה פטרייתית המתבטאת בכתמים חומים-אפרפרים על העלים.",
+        "desc": "מחלה פטרייתית המתבטאת בכתמים חומים-אפרפרים על العלים.",
         "tip": "מומלץ לרסס בקוטלי פטריות עם זיהוי הסימנים הראשונים."
     },
     "WheatBlast": {
@@ -140,8 +139,9 @@ DISEASE_INFO = {
 @st.cache_resource
 def load_wheat_model():
     if not os.path.exists(MODEL_PATH):
-        with st.spinner("טוען מודל בינה מלאכותית..."):
-            gdown.download(f"https://drive.google.com/uc?id={FILE_ID}", MODEL_PATH, quiet=False)
+        st.error(f"❌ הקובץ '{MODEL_PATH}' לא נמצא בתיקיית הפרויקט ב-GitHub.")
+        return None, None
+            
     try:
         checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
         lbl = checkpoint.get("classes", list(DISEASE_INFO.keys()))
@@ -274,9 +274,9 @@ if st.session_state.page == "home":
     st.markdown("<div class='subtitle'>מבצעים: נבו הלר ומתן אדר | מנחה: אסי ברק</div>", unsafe_allow_html=True)
     
     if db is not None:
-        st.markdown("<div style='text-align:center'><span class='db-badge'>🟢 מחובר ל-MongoDB Atlas v3</span></div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center'><span class='db-badge'>🟢 מחובר ל-MongoDB Atlas (Database: wheat_disease_db_v3)</span></div>", unsafe_allow_html=True)
     else:
-        st.markdown("<div style='text-align:center'><span class='db-badge' style='background:#ffebee;color:#c62828'>🔴 לא מחובר ל-MongoDB (בדוק Network Access ב-Atlas)</span></div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center'><span class='db-badge' style='background:#ffebee;color:#c62828'>🔴 לא מחובר ל-MongoDB</span></div>", unsafe_allow_html=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -361,7 +361,7 @@ elif st.session_state.page == "experiment_management":
 
     plants = get_all_plants()
     if not plants:
-        st.warning("⚠️ טרם נטענו נתוני חיישנים במסד הנתונים. אנא עבור לדף ניהול הנתונים והעלה את קובץ ה-Excel/CSV.")
+        st.warning("⚠️ טרם נטענו נתוני חיישנים במסד הנתונים V3. אנא עבור לדף ניהול הנתונים והעלה את קובץ ה-Excel/CSV.")
         st.stop()
 
     labels_list = [f"צמח #{p['id']} | טיפול: {p.get('#Treatment','—')}" for p in plants]
@@ -423,9 +423,9 @@ elif st.session_state.page == "experiment_management":
             class_name, _ = run_model(image)
             auto_diag = DISEASE_INFO.get(class_name, {"heb": "לא זוהה"})["heb"] if class_name else "לא זוהה"
             st.markdown(f"**🔍 תוצאת מודל:** {auto_diag}")
-            if st.button("💾 שמור אבחון ב-MongoDB", use_container_width=True, type="primary"):
+            if st.button("💾 שמור אבחון ב-MongoDB V3", use_container_width=True, type="primary"):
                 save_diagnosis(plant_id, plant_name, image, class_name or "Unknown", auto_diag, notes or "ללא הערות")
-                st.success("✅ האבחון נשמר בהצלחה ב-MongoDB Atlas!")
+                st.success("✅ האבחון נשמר בהצלחה ב-MongoDB Atlas (בסיס V3)!")
                 st.rerun()
 
     st.divider()
@@ -457,7 +457,7 @@ elif st.session_state.page == "experiment_management":
 elif st.session_state.page == "data_management":
     if st.button("🔙 חזרה לדף הבית", key="back3"):
         st.session_state.page = "home"; st.rerun()
-    st.markdown("<h2 style='color:#6a1b9a'>⚙️ ניהול נתונים וסנכרון MongoDB</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#6a1b9a'>⚙️ ניהול נתונים וסנכרון MongoDB V3</h2>", unsafe_allow_html=True)
     st.divider()
 
     st.subheader("📥 העלאת קובץ חיישנים מעודכן (Excel / CSV)")
@@ -468,14 +468,14 @@ elif st.session_state.page == "data_management":
             st.write(f"📊 הקובץ נטען: **{len(df_upload)}** נקודות זמן, **{len(df_upload.columns)}** עמודות מדדים.")
             st.dataframe(df_upload.head(5), use_container_width=True)
             
-            if st.button("✅ אישור ועדכון מסד הנתונים MongoDB", type="primary", use_container_width=True):
-                with st.spinner("מעבד נתונים ומעדכן ב-MongoDB Atlas..."):
+            if st.button("✅ אישור ועדכון מסד הנתונים MongoDB V3", type="primary", use_container_width=True):
+                with st.spinner("מעבד נתונים ומעדכן ב-MongoDB Atlas (Database: wheat_disease_db_v3)..."):
                     process_and_save_sensor_file(df_upload)
-                st.success("✅ הנתונים עודכנו בהצלחה ב-MongoDB!")
+                st.success("✅ הנתונים עודכנו בהצלחה ב-MongoDB V3!")
                 st.balloons()
 
     st.divider()
-    st.subheader("📊 סטטוס מסד הנתונים")
+    st.subheader("📊 סטטוס מסד הנתונים V3")
     with st.container(border=True):
         if db is not None:
             s1, s2, s3 = st.columns(3)
